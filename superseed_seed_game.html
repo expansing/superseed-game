@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Superseed Seed Game</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      background-color: #f5f5f5;
+      margin: 0;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    h1 {
+      margin-bottom: 5px;
+    }
+    #scoreboard {
+      margin-bottom: 20px;
+    }
+    #grid {
+      display: grid;
+      grid-template-columns: repeat(5, 80px);
+      grid-template-rows: repeat(5, 80px);
+      gap: 5px;
+      position: relative;
+    }
+    .cell {
+      width: 80px;
+      height: 80px;
+      border: 1px solid #ccc;
+      background-image: url('https://www.superseed.xyz/logo.svg');
+      background-size: 400px 400px; /* assuming the logo is roughly square */
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 36px;
+      user-select: none;
+      transition: background 0.3s;
+    }
+    /* Initially, each cell is "covered" by a dark overlay */
+    .cell.covered {
+      background-color: rgba(0,0,0,0.5);
+    }
+    /* The overlay for win message */
+    #winOverlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: calc(100% + 10px);
+      height: calc(100% + 10px);
+      background: rgba(255, 255, 255, 0.95);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      text-align: center;
+      z-index: 2;
+      padding: 20px;
+      cursor: pointer;
+    }
+    #winOverlay img {
+      width: 150px;
+      margin-bottom: 20px;
+    }
+    #winMessage {
+      font-size: 18px;
+      white-space: pre-line;
+      overflow: hidden; /* Ensures the text is hidden until typed */
+    }
+    .blinking-cursor {
+      display: inline-block;
+      width: 10px;
+      background-color: black;
+      margin-left: 2px;
+      animation: blink 0.7s infinite;
+    }
+    @keyframes blink {
+      0% { opacity: 1; }
+      50% { opacity: 0; }
+      100% { opacity: 1; }
+    }
+    #restartButton {
+      margin-top: 20px;
+      padding: 10px 20px;
+      font-size: 16px;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <div id="scoreboard">
+    <h1>Superseed Seed Game</h1>
+    <p>Wins: <span id="wins">0</span> | Losses: <span id="losses">0</span></p>
+  </div>
+
+  <div id="grid"></div>
+
+  <button id="restartButton">Restart Game</button>
+
+  <!-- Win overlay -->
+  <div id="winOverlay">
+    <img src="https://www.superseed.xyz/logo.svg" alt="Superseed Logo" />
+    <div id="winMessage"></div>
+  </div>
+
+  <script>
+    const grid = document.getElementById('grid');
+    const winsDisplay = document.getElementById('wins');
+    const lossesDisplay = document.getElementById('losses');
+    const winOverlay = document.getElementById('winOverlay');
+    const winMessageDiv = document.getElementById('winMessage');
+    const restartButton = document.getElementById('restartButton');
+
+    // Game settings
+    const gridSize = 5;
+    const totalCells = gridSize * gridSize;
+    let bombIndex = null;
+    let revealedCount = 0;
+    let wins = 0;
+    let losses = 0;
+    let cells = [];
+
+    // The message to display on win
+    const winText = "Sowing the seed of a decentralized tomorrow,\nEmpowering builders to repay debt\nand grow a thriving ecosystem.";
+
+    // Initialize game board
+    function initGame() {
+      grid.innerHTML = '';
+      winOverlay.style.display = 'none';
+      winMessageDiv.textContent = '';
+      revealedCount = 0;
+      cells = [];
+      // Randomly choose one cell for bomb
+      bombIndex = Math.floor(Math.random() * totalCells);
+      // Create grid cells
+      for (let i = 0; i < totalCells; i++) {
+        const cell = document.createElement('div');
+        cell.classList.add('cell', 'covered');
+        // Calculate background position for slicing the logo
+        const col = i % gridSize;
+        const row = Math.floor(i / gridSize);
+        // Each cell shows a part of the overall image
+        const posX = -(col * 80);
+        const posY = -(row * 80);
+        cell.style.backgroundPosition = `${posX}px ${posY}px`;
+        cell.dataset.index = i;
+        cell.addEventListener('click', onCellClick);
+        grid.appendChild(cell);
+        cells.push(cell);
+      }
+    }
+
+    function onCellClick(e) {
+      const cell = e.currentTarget;
+      // If already revealed or game is over, ignore
+      if (!cell.classList.contains('covered')) return;
+      
+      const index = parseInt(cell.dataset.index);
+      cell.classList.remove('covered');
+
+      if (index === bombIndex) {
+        // Bomb clicked: show bomb and game over
+        cell.textContent = '💣';
+        losses++;
+        lossesDisplay.textContent = losses;
+        revealAll();
+        setTimeout(() => {
+          alert("Boom! You hit the bad seed. Game over.");
+          initGame();
+        }, 300);
+      } else {
+        // Good seed clicked: show seed emoji
+        cell.textContent = '🌱';
+        revealedCount++;
+        if (revealedCount === totalCells - 1) {
+          // All good cells revealed = win!
+          wins++;
+          winsDisplay.textContent = wins;
+          showWinOverlay();
+        }
+      }
+    }
+
+    // Reveal all cells (used on loss)
+    function revealAll() {
+      cells.forEach(cell => {
+        cell.classList.remove('covered');
+        if (!cell.textContent) {
+          const idx = parseInt(cell.dataset.index);
+          cell.textContent = (idx === bombIndex) ? '💣' : '🌱';
+        }
+      });
+    }
+
+    // Display the win overlay with typewriter animation
+    function showWinOverlay() {
+      // Fade out the grid
+      grid.style.opacity = 0.2;
+      winOverlay.style.display = 'flex';
+      typeWriter(winText, winMessageDiv, 0, () => {
+        // Append blinking cursor after text is fully typed
+        const cursor = document.createElement('span');
+        cursor.classList.add('blinking-cursor');
+        winMessageDiv.appendChild(cursor);
+      });
+    }
+
+    // Typewriter effect function
+    function typeWriter(text, element, index, callback) {
+      if (index < text.length) {
+        element.textContent += text.charAt(index);
+        setTimeout(() => {
+          typeWriter(text, element, index + 1, callback);
+        }, 50);
+      } else {
+        if (callback) callback();
+      }
+    }
+
+    // Restart game functionality
+    function restartGame() {
+      grid.style.opacity = 1;
+      initGame();
+    }
+
+    // Attach restart handlers
+    restartButton.addEventListener('click', restartGame);
+    winOverlay.addEventListener('click', restartGame);
+
+    // Start the game for the first time
+    initGame();
+  </script>
+</body>
+</html>
